@@ -29,7 +29,7 @@ dune exec bin/hello.exe
 
 The **Devcontainer image** workflow runs on every push:
 
-- If `.devcontainer/Dockerfile` or the workflow changed (or it was started
+- If `.devcontainer/Dockerfile` changed (or it was started
   from the Actions tab, or by the weekly schedule), it compiles OxCaml from
   source for amd64 and arm64, publishes both to GHCR and merges them into the
   `:latest` tag. Expect 30 to 45 minutes.

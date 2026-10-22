@@ -1,7 +1,7 @@
 name: Devcontainer image
 
-# Builds and publishes the devcontainer image to GHCR when the Dockerfile (or
-# this workflow) changes, weekly, or on demand. Every push then runs the hello
+# Builds and publishes the devcontainer image to GHCR when the Dockerfile
+# changes, weekly, or on demand (Actions tab). Every push then runs the hello
 # world inside the published image.
 
 on:
@@ -37,7 +37,6 @@ jobs:
           filters: |
             image:
               - ".devcontainer/Dockerfile"
-              - ".github/workflows/build-image.yml"
       - name: Decide whether to rebuild
         id: decide
         run: |
@@ -122,12 +121,15 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
+      # The image defaults to the vscode user; the runner needs root to
+      # write its own state files during checkout.
+      options: --user root
     steps:
       - uses: actions/checkout@v4
       - name: Build and run
         run: |
-          # The job runs as root in a non-interactive shell, so load the
-          # vscode user's opam switch explicitly instead of via .bashrc.
+          # Root in a non-interactive shell, so load the vscode user's opam
+          # switch explicitly instead of via .bashrc.
           eval "$(opam env --root /home/vscode/.opam --switch oxcaml --set-root --set-switch)"
           ocaml -version
           opam list --installed --short ocaml-lsp-server merlin dune
