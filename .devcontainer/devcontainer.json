@@ -1,0 +1,40 @@
+{
+  "name": "OxCaml",
+  // Pre-built by .github/workflows/build-image.yml from .devcontainer/Dockerfile.
+  // If you fork or rename this repo, point this at your own GHCR package.
+  "image": "ghcr.io/sudha247/sample-oxcaml-devcontainer:latest",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ocamllabs.ocaml-platform"],
+      "settings": {
+        "ocaml.sandbox": {
+          "kind": "opam",
+          "switch": "oxcaml"
+        }
+      }
+    }
+  },
+
+  "remoteUser": "vscode",
+
+  // Persist the dune cache across container rebuilds.
+  "mounts": [
+    "source=dune-cache,target=/home/vscode/.cache/dune,type=volume"
+  ],
+  "remoteEnv": {
+    "DUNE_CACHE_ROOT": "/home/vscode/.cache/dune"
+  },
+
+  "postCreateCommand": "dune build",
+
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  "codespaces": {
+    "openFiles": ["README.md", "bin/hello.ml"]
+  }
+}
