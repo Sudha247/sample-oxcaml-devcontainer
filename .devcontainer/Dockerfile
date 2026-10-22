@@ -4,15 +4,16 @@
 # Codespaces and VS Code pull the published image via devcontainer.json,
 # so nobody has to compile OxCaml on first open.
 #
-# To bump OxCaml, change OXCAML_VARIANT (see
-# https://github.com/oxcaml/opam-repository/tree/main/packages/ocaml-variants).
+# To bump OxCaml, change OXCAML_COMPILER to another version from
+# https://github.com/oxcaml/opam-repository/tree/main/packages/oxcaml-compiler
+# (5.2.0minusNN releases report themselves as 5.2.0+ox; 5.4.0-oxN as 5.4.0+ox).
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ARG OXCAML_VARIANT=5.4.0+ox
+ARG OXCAML_COMPILER=5.2.0minus40
 ARG OXCAML_SWITCH=oxcaml
 
-LABEL org.opencontainers.image.description="OxCaml ${OXCAML_VARIANT} devcontainer"
+LABEL org.opencontainers.image.description="OxCaml ${OXCAML_COMPILER} devcontainer"
 LABEL org.opencontainers.image.licenses="MIT"
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -39,7 +40,7 @@ RUN opam init --disable-sandboxing --bare --yes
 # layered on top of the default repository.
 RUN opam switch create "${OXCAML_SWITCH}" \
       --repos "ox=git+https://github.com/oxcaml/opam-repository.git,default" \
-      "ocaml-variants.${OXCAML_VARIANT}" --yes
+      "oxcaml-compiler.${OXCAML_COMPILER}" --yes
 
 RUN opam install -y dune ocaml-lsp-server merlin \
     && opam clean -a --yes

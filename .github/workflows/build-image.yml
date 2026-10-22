@@ -1,11 +1,13 @@
-name: Build devcontainer image
+name: Devcontainer image
+
+# Builds and publishes the devcontainer image to GHCR when the Dockerfile (or
+# this workflow) changes, weekly, or on demand. Every push then runs the hello
+# world inside the published image.
 
 on:
   push:
     branches: [main]
-    paths:
-      - ".devcontainer/Dockerfile"
-      - ".github/workflows/build-image.yml"
+  pull_request:
   schedule:
     # Weekly rebuild to pick up base-image security patches.
     - cron: "0 6 * * 1"
@@ -15,8 +17,42 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
+  changes:
+    name: Detect Dockerfile changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+      rebuild: ${{ steps.decide.outputs.rebuild }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute lowercase image name
+        id: name
+        run: echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            image:
+              - ".devcontainer/Dockerfile"
+              - ".github/workflows/build-image.yml"
+      - name: Decide whether to rebuild
+        id: decide
+        run: |
+          if [ "${{ steps.filter.outputs.image }}" = "true" ] \
+             || [ "${{ github.event_name }}" = "workflow_dispatch" ] \
+             || [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "rebuild=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "rebuild=false" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build (${{ matrix.arch }})
+    needs: changes
+    if: needs.changes.outputs.rebuild == 'true' && github.event_name != 'pull_request'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -29,32 +65,22 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image: ${{ steps.name.outputs.image }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Compute lowercase image name
-        id: name
-        run: echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
-
       - uses: docker/setup-buildx-action@v3
-
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Build and push per-arch image
-        id: build
         uses: docker/build-push-action@v6
         with:
           context: .devcontainer
           file: .devcontainer/Dockerfile
           platforms: linux/${{ matrix.arch }}
           push: true
-          tags: ${{ steps.name.outputs.image }}:latest-${{ matrix.arch }}
+          tags: ${{ needs.changes.outputs.image }}:latest-${{ matrix.arch }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -63,35 +89,36 @@ jobs:
 
   merge:
     name: Publish multi-arch manifest
-    needs: build
+    needs: [changes, build]
+    if: needs.changes.outputs.rebuild == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       packages: write
     steps:
       - uses: docker/setup-buildx-action@v3
-
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create :latest from the per-arch tags
         run: |
-          IMAGE="${{ needs.build.outputs.image }}"
+          IMAGE="${{ needs.changes.outputs.image }}"
           docker buildx imagetools create -t "$IMAGE:latest" \
             "$IMAGE:latest-amd64" "$IMAGE:latest-arm64"
           docker buildx imagetools inspect "$IMAGE:latest"
 
   test:
     name: Hello world inside the image
-    needs: [build, merge]
+    needs: [changes, merge]
+    # Run after a rebuild, or straight away when only code changed.
+    if: always() && needs.changes.result == 'success' && (needs.merge.result == 'success' || needs.merge.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: read
     container:
-      image: ${{ needs.build.outputs.image }}:latest
+      image: ${{ needs.changes.outputs.image }}:latest
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -103,6 +130,7 @@ jobs:
           # vscode user's opam switch explicitly instead of via .bashrc.
           eval "$(opam env --root /home/vscode/.opam --switch oxcaml --set-root --set-switch)"
           ocaml -version
+          opam list --installed --short ocaml-lsp-server merlin dune
           dune build
           dune exec bin/hello.exe | tee out.txt
           grep -q "Hello from OxCaml" out.txt
