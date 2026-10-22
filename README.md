@@ -4,9 +4,13 @@ A minimal repository showing how to develop [OxCaml](https://oxcaml.org/)
 in a [devcontainer](https://containers.dev/), on GitHub Codespaces or
 locally, without compiling the compiler yourself.
 
-- **OxCaml version:** `oxcaml-compiler.5.2.0minus40` from the
+- **OxCaml version:** `oxcaml-compiler.5.2.0minus39` from the
   [oxcaml opam repository](https://github.com/oxcaml/opam-repository).
-  The runtime reports itself as `5.2.0+ox`.
+  The runtime reports itself as `5.2.0+ox`. This is the release that
+  `ocaml-variants.5.2.0+ox` resolves to, and the one the repository's
+  merlin and ocaml-lsp-server are built against; the newer `5.2.0minus40`
+  is marked `avoid-version` and its `.cmi` format is not understood by
+  that merlin.
 - **Image:** `ghcr.io/sudha247/sample-oxcaml-devcontainer:latest`
   (linux/amd64 and linux/arm64), built from
   [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile) by

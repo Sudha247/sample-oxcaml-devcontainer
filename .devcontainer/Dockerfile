@@ -10,7 +10,7 @@
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-ARG OXCAML_COMPILER=5.2.0minus40
+ARG OXCAML_COMPILER=5.2.0minus39
 ARG OXCAML_SWITCH=oxcaml
 
 LABEL org.opencontainers.image.description="OxCaml ${OXCAML_COMPILER} devcontainer"
