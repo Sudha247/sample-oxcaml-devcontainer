@@ -4,13 +4,86 @@ A minimal repository showing how to develop [OxCaml](https://oxcaml.org/)
 in a [devcontainer](https://containers.dev/), on GitHub Codespaces or
 locally, without compiling the compiler yourself.
 
+
+## Introduction
+
+[OxCaml](https://oxcaml.org/) is a compiler branch developed at [Jane
+Street](https://www.janestreet.com/). It contains, along with traditional OCaml
+features a set of fast moving extensions for performance critical aspects of
+programming.
+
+## Option 1: Install locally
+
+To install and run OxCaml locally on your machine, follow the instructions
+below. This will work on MacOS and Linux systems.
+
+```bash
+# 1. Install OPAM - OCaml's package manager
+
+bash -c "sh <(curl -fsSL https://opam.ocaml.org/install.sh)"
+opam init --yes
+
+# 2. Create an OxCaml "switch". A compiler build of the OxCaml compiler.
+
+opam switch create oxcaml \
+  --repos "ox=git+https://github.com/oxcaml/opam-repository.git,default" \
+  oxcaml-compiler.5.2.0minus39 --yes
+
+# 3. Activate the compiler switch (run this again in every new shell)
+
+eval $(opam env)
+
+# 4. Install tools
+
+opam install dune ocaml-lsp-server merlin utop
+
+# 5. Test your installation
+
+ocaml --version
+
+# 6. Get this repository
+
+git clone https://github.com/Sudha247/sample-oxcaml-devcontainer
+cd sample-oxcaml-devcontainer
+
+```
+
+## Option 2: Run it on GitHub Codespaces (easiest)
+
+Codespaces runs the container on GitHub's servers and gives you VS Code in
+your browser. Nothing to install locally.
+
+1. On the repository page, click **Code → Codespaces → Create codespace on
+   main**.
+2. Wait a minute or two. When the editor appears, a setup step
+   (`postCreateCommand`) runs `dune build` automatically.
+3. Open the terminal (**Terminal → New Terminal**) and run:
+
+   ```bash
+   $ ocaml --version
+   ```
+
+### When you're done
+
+Personal GitHub accounts include 120 core-hours of Codespaces per month for
+free, which is 60 hours on the default 2-core machine, plus 15 GB of storage.
+That's plenty for trying OxCaml. A stopped Codespace doesn't use compute
+hours, but it does keep using storage, so delete it once you're finished:
+
+```bash
+gh codespace delete
+```
+
+or on the repository page, **Code → Codespaces → ⋯ → Delete**. You can
+always create a fresh one later; it takes a minute or two.
+
+See [About billing for GitHub Codespaces](https://docs.github.com/en/billing/managing-billing-for-your-products/managing-billing-for-github-codespaces/about-billing-for-github-codespaces)
+for the details.
+
+## What we installed
+
 - **OxCaml version:** `oxcaml-compiler.5.2.0minus39` from the
   [oxcaml opam repository](https://github.com/oxcaml/opam-repository).
-  The runtime reports itself as `5.2.0+ox`. This is the release that
-  `ocaml-variants.5.2.0+ox` resolves to, and the one the repository's
-  merlin and ocaml-lsp-server are built against; the newer `5.2.0minus40`
-  is marked `avoid-version` and its `.cmi` format is not understood by
-  that merlin.
 - **Image:** `ghcr.io/sudha247/sample-oxcaml-devcontainer:latest`
   (linux/amd64 and linux/arm64), built from
   [`.devcontainer/Dockerfile`](.devcontainer/Dockerfile) by
@@ -20,93 +93,15 @@ locally, without compiling the compiler yourself.
 
 ## Hello world
 
-[`bin/hello.ml`](bin/hello.ml) uses `stack_` and `exclave_`, two OxCaml-only
-keywords for stack allocation, so it only builds on OxCaml.
+[`bin/hello.ml`](bin/hello.ml) uses `stack_` and `exclave_`, two keywords
+that only exist in OxCaml, so if it runs you know you're on the right
+compiler.
 
 ```bash
 dune build
 dune exec bin/hello.exe
 # Hello from OxCaml 5.2.0+ox! 20 + 22 = 42
 ```
-
-## How the image gets built
-
-The **Devcontainer image** workflow runs on every push:
-
-- If `.devcontainer/Dockerfile` changed (or it was started
-  from the Actions tab, or by the weekly schedule), it compiles OxCaml from
-  source for amd64 and arm64, publishes both to GHCR and merges them into the
-  `:latest` tag. Expect 30 to 45 minutes.
-- In every case it then checks out the repo inside `:latest`, builds, and
-  runs the hello world.
-
-The first push to a new repository therefore triggers a full build. Until it
-finishes, there is no image to pull and a Codespace cannot start.
-
-## Run it on GitHub Codespaces
-
-1. Wait for the **Devcontainer image** workflow to be green.
-2. Make the package visible to Codespaces. The simplest option is to set it
-   to **Public** under *your profile → Packages → sample-oxcaml-devcontainer
-   → Package settings*. (A package pushed by this repository's own workflow
-   is also linked to the repository, which is enough for Codespaces on a
-   private package.)
-3. On the repository page click **Code → Codespaces → Create codespace on
-   main**. The container starts in a minute or two and `postCreateCommand`
-   runs `dune build`.
-4. In the Codespace terminal:
-
-   ```bash
-   dune exec bin/hello.exe
-   ```
-
-   Opening `bin/hello.ml` shows hover types and diagnostics from
-   ocaml-lsp-server through the OCaml Platform extension.
-
-Or from the command line:
-
-```bash
-gh codespace create --repo Sudha247/sample-oxcaml-devcontainer
-gh codespace ssh
-```
-
-Delete the Codespace afterwards with `gh codespace delete` to avoid charges.
-
-## Run it locally
-
-With VS Code and the Dev Containers extension: open the folder and choose
-**Reopen in Container**.
-
-With the [devcontainer CLI](https://github.com/devcontainers/cli):
-
-```bash
-devcontainer up --workspace-folder .
-devcontainer exec --workspace-folder . dune exec bin/hello.exe
-```
-
-Or with plain Docker:
-
-```bash
-docker run --rm -it -v "$PWD:/work" -w /work \
-  ghcr.io/sudha247/sample-oxcaml-devcontainer:latest \
-  bash -lc 'dune build && dune exec bin/hello.exe'
-```
-
-## Updating OxCaml
-
-Change `OXCAML_COMPILER` in `.devcontainer/Dockerfile` to another version
-from the oxcaml repository's `packages/oxcaml-compiler` directory and push.
-The workflow rebuilds and republishes the image.
-
-Note that as of October 2026 the newer `5.4.0-ox7` compiler builds, but the
-repository's `merlin` and `ocaml-lsp-server` packages still require
-`ocaml < 5.3`, so a 5.4 switch has no editor tooling yet. Stay on a
-`5.2.0minusNN` release until that changes.
-
-To add more tools, extend the `opam install` line in the Dockerfile.
-`ocamlformat` and `utop` have `+ox` builds too, and the Jane Street
-libraries (`base`, `core`, `parallel`, `await`) install from the same
-repository.
 
 ## Credits
 
